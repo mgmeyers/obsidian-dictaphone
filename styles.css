@@ -1,8 +1,82 @@
-/*
+.cm-tooltip.dictation-indicator {
+    background-color: transparent;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.dictation-indicator-child {
+    --size: 16px;
+    border-radius: 50%;
+    display: block;
+    position: absolute;
+    width: var(--size);
+    height: var(--size);
+    left: calc(var(--size) / -2);
+    bottom: 4px;
+}
 
-If your plugin does not need CSS, delete this file.
+.dictation-indicator.recording .dictation-indicator-child::after {
+    background-color: transparent;
+    border-radius: 1px;
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--size) / 2.5);
+    height: calc(var(--size) / 2.5);
+    transform: translate(-50%, -50%);
+    transition: background-color 150ms ease-in-out;
+}
 
-*/
+.dictation-indicator.recording:hover .dictation-indicator-child::after {
+    background-color: var(--background-primary);
+}
+
+.dictation-indicator.recording .dictation-indicator-child {
+    background: linear-gradient(165deg,
+            rgb(255, 0, 0) 0%,
+            rgb(220, 0, 0) 40%,
+            rgb(170, 0, 0) 98%,
+            rgb(100, 0, 0) 100%);
+    box-shadow: 0 0 0 2px var(--background-primary);
+}
+
+.dictation-indicator.recording .dictation-indicator-child:before {
+    animation: 2s pulse ease-in-out infinite;
+    border-bottom: 0 solid #ff000099;
+    border-radius: 100%;
+    box-shadow: 0 0px 0px 3px #ff000099;
+    content: "";
+    filter: blur(3px);
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.dictation-indicator.processing .dictation-indicator-child {
+    animation: rotation 1s linear infinite;
+    border: 3px dotted var(--color-accent-1);
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+
+@keyframes pulse {
+    0% {
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
