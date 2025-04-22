@@ -4,10 +4,14 @@ import { AssemblyAITranscriber } from './AssemblyAITranscriber';
 
 interface DictaphoneSettings {
   assemblyApiKey: string;
+  postProcess: boolean;
+  postProcessPrompt: string;
 }
 
 const DEFAULT_SETTINGS: DictaphoneSettings = {
   assemblyApiKey: '',
+  postProcess: true,
+  postProcessPrompt: "The input text is a transcript of a voice dictation. Correct grammar, punctuation, sentence structure, and spelling mistakes but do not change any of the words used. Your response should include the updated text and nothing else. It should not include any introductory or helper text, nor any formatting. It should never start with 'Here is'.",
 };
 
 export default class Dictaphone extends Plugin {
@@ -83,7 +87,7 @@ export default class Dictaphone extends Plugin {
     }
 
     try {
-      this.transcriber = new AssemblyAITranscriber(this.app, apiKey);
+      this.transcriber = new AssemblyAITranscriber(this.app, apiKey, this);
     } catch (error) {
       console.error('[Dictaphone] Error creating transcriber:', error);
       if (!silent) {
@@ -107,6 +111,15 @@ class DictaphoneSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
+      .setName('Check microphone permissions')
+      .addButton((button) =>
+        button.setButtonText('Check').onClick(async () => {
+          const permission = await this.plugin.transcriber?.requestPermission();
+          new Notice(permission ? 'Permission granted' : 'Permission denied');
+        })
+      );
+
+    new Setting(containerEl)
       .setName('AssemblyAI API Key')
       .setDesc('Enter your AssemblyAI API key')
       .addText((text) =>
@@ -121,12 +134,27 @@ class DictaphoneSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Check microphone permissions')
-      .addButton((button) =>
-        button.setButtonText('Check').onClick(async () => {
-          const permission = await this.plugin.transcriber?.requestPermission();
-          new Notice(permission ? 'Permission granted' : 'Permission denied');
-        })
+      .setName('Post-process transcription')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.postProcess)
+          .onChange(async (value) => {
+            this.plugin.settings.postProcess = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName('Post-process prompt')
+      .setDesc('Prompt used for post-processing dictation transcript')
+      .addTextArea((text) =>
+        text
+          .setPlaceholder('Enter a post-processing prompt')
+          .setValue(this.plugin.settings.postProcessPrompt)
+          .onChange(async (value) => {
+            this.plugin.settings.postProcessPrompt = value;
+            await this.plugin.saveSettings();
+          })
       );
   }
 }

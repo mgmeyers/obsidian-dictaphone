@@ -8,6 +8,7 @@ import {
   transcriptionEnd,
 } from './editorPlugin';
 import { Microphone } from './Microphone';
+import Dictaphone from './main';
 
 /**
  * Utility function to remove leading and trailing spaces from a string
@@ -70,6 +71,7 @@ const transforms = [
  * text insertion and updates.
  */
 export class AssemblyAITranscriber {
+  private plugin: Dictaphone;
   private app: App; // Obsidian app instance
   private microphone: Microphone; // Microphone handler
   private apiKey: string; // AssemblyAI API key
@@ -82,10 +84,11 @@ export class AssemblyAITranscriber {
    * @param app - The Obsidian app instance
    * @param apiKey - AssemblyAI API key for authentication
    */
-  constructor(app: App, apiKey: string) {
+  constructor(app: App, apiKey: string, plugin: Dictaphone) {
     this.app = app;
     this.apiKey = apiKey;
     this.microphone = new Microphone();
+    this.plugin = plugin;
   }
 
   /**
@@ -369,6 +372,10 @@ export class AssemblyAITranscriber {
    * @returns Promise resolving to the processed text
    */
   private async postProcessTranscript(text: string): Promise<string> {
+    if (!this.plugin.settings.postProcess || !this.plugin.settings.postProcessPrompt) {
+      return text;
+    }
+
     try {
       const headers = {
         Authorization: this.apiKey,
@@ -382,8 +389,7 @@ export class AssemblyAITranscriber {
         headers: headers,
         body: JSON.stringify({
           final_model: 'anthropic/claude-3-5-sonnet',
-          prompt:
-            "The input text is a transcript of a voice dictation. Correct grammar, punctuation, sentence structure, and spelling mistakes but do not change any of the words used. Your response should include the updated text and nothing else. It should not include any introductory or helper text, nor any formatting. It should never start with 'Here is'.",
+          prompt: this.plugin.settings.postProcessPrompt,
           temperature: 0,
           input_text: text,
         }),
