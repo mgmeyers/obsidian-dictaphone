@@ -128,7 +128,7 @@ export class AssemblyAITranscriber {
 
       // Configure word boosting for better recognition of specific phrases
       const wordBoost = encodeURIComponent(
-        JSON.stringify(['dictaphone', 'new line'])
+        JSON.stringify(['new line'])
       );
 
       // Initialize WebSocket connection with configuration parameters
@@ -160,7 +160,8 @@ export class AssemblyAITranscriber {
       };
 
       // Handle WebSocket connection closure
-      this.websocket.onclose = () => {
+      this.websocket.onclose = (event) => {
+        console.error('[Dictaphone] WebSocket close:', event);
         this.stopTranscription();
       };
 
@@ -200,7 +201,7 @@ export class AssemblyAITranscriber {
     this.isTranscribing = false;
     this.microphone.stopRecording();
 
-    if (this.websocket) {
+    if (this.websocket && ![WebSocket.CLOSED, WebSocket.CLOSING].includes(this.websocket.readyState as any)) {
       // Send termination message and close WebSocket
       this.websocket.send('{"terminate_session":true}');
       this.websocket.close();
@@ -388,7 +389,7 @@ export class AssemblyAITranscriber {
         method: 'post',
         headers: headers,
         body: JSON.stringify({
-          final_model: 'anthropic/claude-3-5-sonnet',
+          final_model: 'anthropic/claude-3-7-sonnet-20250219',
           prompt: this.plugin.settings.postProcessPrompt,
           temperature: 0,
           input_text: text,
