@@ -304,7 +304,7 @@ export class AssemblyAITranscriber {
         url: 'https://api.assemblyai.com/v2/realtime/token',
         method: 'post',
         headers: headers,
-        body: JSON.stringify({ expires_in: 480 }),
+        body: JSON.stringify({ expires_in: 360000 }),
       });
 
       return JSON.parse(response).token;
