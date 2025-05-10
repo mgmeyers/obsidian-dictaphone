@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-dictaphone",
 	"name": "Dictaphone",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"minAppVersion": "1.8.9",
 	"description": "Transcribe audio from your microphone in real-time.",
 	"author": "mgmeyers",

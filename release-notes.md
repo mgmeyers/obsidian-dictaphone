@@ -1,1 +1,1 @@
-33968ce Attempt to handle disconnections with more grace
+bc3e0b2 More gracefull error handling
