@@ -157,6 +157,21 @@ export class Microphone {
         if (onAudioCallback) onAudioCallback(finalBuffer);
       }
     };
+
+    // Add error handlers for the media stream
+    this.stream.getAudioTracks().forEach(track => {
+      track.addEventListener('ended', () => {
+        console.log('[Dictaphone] Audio track ended unexpectedly');
+        this.stopRecording();
+      })
+    });
+
+    this.audioContext.addEventListener('statechange', () => {
+      if (this.audioContext?.state === 'suspended' || this.audioContext?.state === 'closed') {
+        console.log('[Dictaphone] Audio context state changed:', this.audioContext.state);
+        this.stopRecording();
+      }
+    })
   }
 
   handleDeviceChange = () => {
@@ -184,7 +199,9 @@ export class Microphone {
     this.audioContext = null;
     this.audioBufferQueue = new Int16Array(0);
     this.onDisconnectCallback = null;
+    this.audioWorkletNode?.disconnect();
     this.audioWorkletNode = null;
+    this.source?.disconnect();
     this.source = null;
   }
 }

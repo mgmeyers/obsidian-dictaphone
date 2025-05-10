@@ -161,7 +161,9 @@ export class AssemblyAITranscriber {
 
       // Handle WebSocket connection closure
       this.websocket.onclose = (event) => {
-        console.error('[Dictaphone] WebSocket close:', event);
+        if (event.reason) {
+          console.error('[Dictaphone] WebSocket close:', event);
+        }
         this.stopTranscription();
       };
 
