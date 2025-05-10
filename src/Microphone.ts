@@ -48,7 +48,6 @@ export class Microphone {
   private audioBufferQueue = new Int16Array(0);
   private audioContext: AudioContext | null = null;
   private audioWorkletNode: AudioWorkletNode | null = null;
-  private onDisconnectCallback: (() => void) | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private stream: MediaStream | null = null;
   private wakeLock: WakeLockSentinel | null = null;
@@ -107,12 +106,6 @@ export class Microphone {
     // Acquire wake lock to keep screen on
     await this.acquireWakeLock();
 
-    navigator.mediaDevices.addEventListener(
-      'devicechange',
-      this.handleDeviceChange
-    );
-    this.onDisconnectCallback = onDisconnectCallback ?? null;
-
     this.audioContext = new AudioContext({
       sampleRate: SAMPLE_RATE,
       latencyHint: 'balanced',
@@ -160,35 +153,27 @@ export class Microphone {
 
     // Add error handlers for the media stream
     this.stream.getAudioTracks().forEach(track => {
-      track.addEventListener('ended', () => {
-        console.log('[Dictaphone] Audio track ended unexpectedly');
+      track.addEventListener('ended', (evt) => {
+        console.log('[Dictaphone] Audio track ended unexpectedly', evt);
         this.stopRecording();
+        onDisconnectCallback?.();
       })
     });
 
-    this.audioContext.addEventListener('statechange', () => {
+    this.audioContext.addEventListener('statechange', (evt) => {
       if (this.audioContext?.state === 'suspended' || this.audioContext?.state === 'closed') {
-        console.log('[Dictaphone] Audio context state changed:', this.audioContext.state);
+        console.log('[Dictaphone] Audio context state changed:', evt, this.audioContext.state);
         this.stopRecording();
+        onDisconnectCallback?.();
       }
     })
   }
-
-  handleDeviceChange = () => {
-    this.stopRecording();
-    this.onDisconnectCallback?.();
-  };
 
   /**
    * Stop recording and clean up resources
    */
   stopRecording() {
     this.releaseWakeLock();
-
-    navigator.mediaDevices.removeEventListener(
-      'devicechange',
-      this.handleDeviceChange
-    );
 
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
@@ -198,7 +183,6 @@ export class Microphone {
     }
     this.audioContext = null;
     this.audioBufferQueue = new Int16Array(0);
-    this.onDisconnectCallback = null;
     this.audioWorkletNode?.disconnect();
     this.audioWorkletNode = null;
     this.source?.disconnect();

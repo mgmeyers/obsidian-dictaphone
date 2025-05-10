@@ -39,7 +39,7 @@
     box-shadow: 0 0 0 2px var(--background-primary);
 }
 
-.dictation-indicator.recording .dictation-indicator-child:before {
+.dictation-indicator.recording .dictation-indicator-child::before {
     animation: 2s pulse ease-in-out infinite;
     border-bottom: 0 solid #ff000099;
     border-radius: 100%;
@@ -52,20 +52,21 @@
 }
 
 .dictation-indicator.processing .dictation-indicator-child {
-    animation: rotation 1s linear infinite;
-    border: 3px dotted var(--color-accent-1);
+    background: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--background-primary);
 }
 
-@keyframes rotation {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
+.dictation-indicator.processing .dictation-indicator-child::before {
+    animation: 2s pulse ease-in-out infinite;
+    border-bottom: 0 solid var(--color-accent-2);
+    border-radius: 100%;
+    box-shadow: 0 0px 0px 3px var(--color-accent-2);
+    content: "";
+    filter: blur(3px);
+    position: absolute;
+    width: 100%;
+    height: 100%;
 }
-
 
 @keyframes pulse {
     0% {

@@ -9,6 +9,12 @@ import {
 } from './editorPlugin';
 import { Microphone } from './Microphone';
 import Dictaphone from './main';
+import { notificationSound } from './notificationSound';
+
+function playDisconnectNotification() {
+  const audio = new Audio(notificationSound);
+  audio.play();
+}
 
 /**
  * Utility function to remove leading and trailing spaces from a string
@@ -182,6 +188,7 @@ export class AssemblyAITranscriber {
         },
         // Handle microphone disconnection
         () => {
+          playDisconnectNotification();
           this.stopTranscription();
         }
       );
