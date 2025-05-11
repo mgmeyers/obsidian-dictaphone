@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { dictationIndicator } from './editorPlugin';
 import { AssemblyAITranscriber } from './AssemblyAITranscriber';
 
@@ -6,12 +6,14 @@ interface DictaphoneSettings {
   assemblyApiKey: string;
   postProcess: boolean;
   postProcessPrompt: string;
+  finalModel: string;
 }
 
 const DEFAULT_SETTINGS: DictaphoneSettings = {
   assemblyApiKey: '',
   postProcess: true,
   postProcessPrompt: "The input text is a transcript of a voice dictation. Correct grammar, punctuation, sentence structure, and spelling mistakes but do not change any of the words used. Your response should include the updated text and nothing else. It should not include any introductory or helper text, nor any formatting. It should never start with 'Here is'.",
+  finalModel: 'anthropic/claude-3-7-sonnet-20250219',
 };
 
 export default class Dictaphone extends Plugin {
@@ -22,12 +24,12 @@ export default class Dictaphone extends Plugin {
     return !!this.transcriber?.isTranscribing;
   }
 
-  startTranscription() {
-    this.transcriber?.startTranscription();
+  startTranscription(editor: Editor) {
+    this.transcriber?.startTranscription(editor);
   }
 
-  stopTranscription() {
-    this.transcriber?.stopTranscription();
+  stopTranscription(immediate: boolean = false) {
+    this.transcriber?.stopTranscription(immediate);
   }
 
   async onload() {
@@ -39,11 +41,11 @@ export default class Dictaphone extends Plugin {
     this.addCommand({
       id: 'transcribe-audio',
       name: 'Start/Stop Transcription',
-      editorCallback: () => {
+      editorCallback: (editor) => {
         if (this.isTranscribing) {
           this.stopTranscription();
         } else {
-          this.startTranscription();
+          this.startTranscription(editor);
         }
       },
     });
@@ -87,7 +89,7 @@ export default class Dictaphone extends Plugin {
     }
 
     try {
-      this.transcriber = new AssemblyAITranscriber(this.app, apiKey, this);
+      this.transcriber = new AssemblyAITranscriber(apiKey, this);
     } catch (error) {
       console.error('[Dictaphone] Error creating transcriber:', error);
       if (!silent) {
@@ -147,12 +149,32 @@ class DictaphoneSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Post-process prompt')
       .setDesc('Prompt used for post-processing dictation transcript')
-      .addTextArea((text) =>
+      .addTextArea((text) => {
         text
           .setPlaceholder('Enter a post-processing prompt')
           .setValue(this.plugin.settings.postProcessPrompt)
           .onChange(async (value) => {
             this.plugin.settings.postProcessPrompt = value;
+            await this.plugin.saveSettings();
+          })
+
+        text.inputEl.style.width = "100%";
+        text.inputEl.rows = 8;
+      });
+
+    let desc = createFragment(el => {
+      el.createEl('a', { text: 'Click here for available models', href: 'https://www.assemblyai.com/docs/lemur/customize-parameters' })
+    })
+
+    new Setting(containerEl)
+      .setName('Post-processing model')
+      .setDesc(desc)
+      .addText((text) =>
+        text
+          .setPlaceholder('Enter the model name')
+          .setValue(this.plugin.settings.finalModel)
+          .onChange(async (value) => {
+            this.plugin.settings.finalModel = value;
             await this.plugin.saveSettings();
           })
       );

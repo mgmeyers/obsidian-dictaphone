@@ -1,4 +1,4 @@
-import { App, request } from 'obsidian';
+import { Editor, request } from 'obsidian';
 import { SAMPLE_RATE } from 'src/Microphone';
 import { StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -78,20 +78,19 @@ const transforms = [
  */
 export class AssemblyAITranscriber {
   private plugin: Dictaphone;
-  private app: App; // Obsidian app instance
   private microphone: Microphone; // Microphone handler
   private apiKey: string; // AssemblyAI API key
   private websocket: WebSocket | null = null; // WebSocket connection to AssemblyAI
   private transcribedLines: { from: number; to: number } = { from: -1, to: -1 }; // Track transcribed line range
+  private activeEditor: Editor | null = null;
   public isTranscribing: boolean = false; // Current transcription state
 
   /**
    * Creates a new AssemblyAI transcriber instance
-   * @param app - The Obsidian app instance
    * @param apiKey - AssemblyAI API key for authentication
+   * @param plugin
    */
-  constructor(app: App, apiKey: string, plugin: Dictaphone) {
-    this.app = app;
+  constructor(apiKey: string, plugin: Dictaphone) {
     this.apiKey = apiKey;
     this.microphone = new Microphone();
     this.plugin = plugin;
@@ -123,7 +122,7 @@ export class AssemblyAITranscriber {
    * Initiates real-time transcription using AssemblyAI's WebSocket API
    * Sets up WebSocket connection, handles messages, and manages audio streaming
    */
-  public async startTranscription(): Promise<void> {
+  public async startTranscription(editor: Editor): Promise<void> {
     if (this.isTranscribing) {
       return;
     }
@@ -175,6 +174,7 @@ export class AssemblyAITranscriber {
 
       // Start recording and streaming audio
       this.isTranscribing = true;
+      this.activeEditor = editor;
       this.dispatchStateEffect(transcriptionStart.of());
       await this.microphone.startRecording(
         // Audio data callback
@@ -198,15 +198,29 @@ export class AssemblyAITranscriber {
     }
   }
 
+  private checkEditor() {
+    if (!this.activeEditor || !((this.activeEditor as any).cm as EditorView).dom.isConnected) {
+      this.stopTranscription(true);
+      return false
+    }
+
+    return true;
+  }
+
   /**
    * Stops the transcription process and cleans up resources
    */
-  public stopTranscription(): void {
+  public stopTranscription(immediate: boolean = false): void {
     if (!this.isTranscribing) {
       return;
     }
 
-    this.runPostProcess();
+    if (!immediate) {
+      this.runPostProcess();
+    }
+    else {
+      this.activeEditor = null;
+    }
     this.isTranscribing = false;
     this.microphone.stopRecording();
 
@@ -223,19 +237,18 @@ export class AssemblyAITranscriber {
    * @param text - The partial transcript text
    */
   private handlePartialTranscript(text: string): void {
-    let active = this.app.workspace.activeEditor;
-    if (!active?.editor) {
-      this.stopTranscription();
+    if (!this.checkEditor()) {
       return;
     }
+    let activeEditor = this.activeEditor!;
 
     // Get current cursor position
-    let from = active.editor.getCursor('from');
-    let to = active.editor.getCursor('to');
+    let from = activeEditor.getCursor('from');
+    let to = activeEditor.getCursor('to');
 
     // Replace text at cursor and update selection
-    active.editor.replaceRange(text, from, to);
-    active.editor.setSelection(from, { ...from, ch: from.ch + text.length });
+    activeEditor.replaceRange(text, from, to);
+    activeEditor.setSelection(from, { ...from, ch: from.ch + text.length });
 
     // Update transcribed line range
     if (this.transcribedLines.from === -1) {
@@ -255,20 +268,19 @@ export class AssemblyAITranscriber {
    * @param text - The final transcript text
    */
   private handleFinalTranscript(text: string): void {
+    if (!this.checkEditor()) {
+      return;
+    }
+    let activeEditor = this.activeEditor!;
+
     // Apply text transformations
     for (const transform of transforms) {
       text = transform(text);
     }
 
-    let active = this.app.workspace.activeEditor;
-    if (!active?.editor) {
-      this.stopTranscription();
-      return;
-    }
-
     // Get current cursor position
-    let from = active.editor.getCursor('from');
-    let to = active.editor.getCursor('to');
+    let from = activeEditor.getCursor('from');
+    let to = activeEditor.getCursor('to');
     let insert = text;
 
     // Ensure proper spacing between transcribed segments
@@ -279,10 +291,10 @@ export class AssemblyAITranscriber {
     let end = { ...from, ch: from.ch + insert.length };
 
     // Update editor content and cursor position
-    active.editor.replaceRange(insert, from, to);
-    active.editor.setCursor(end);
+    activeEditor.replaceRange(insert, from, to);
+    activeEditor.setCursor(end);
 
-    from = active.editor.getCursor('from');
+    from = activeEditor.getCursor('from');
 
     // Update transcribed line range
     if (this.transcribedLines.from === -1) {
@@ -328,14 +340,15 @@ export class AssemblyAITranscriber {
    * Applies formatting and cleanup to the transcribed text
    */
   private async runPostProcess(): Promise<void> {
-    let active = this.app.workspace.activeEditor;
-    if (!active?.editor || this.transcribedLines.from === -1) {
+    if (!this.checkEditor() || this.transcribedLines.from === -1) {
       // Reset transcribed lines tracking
       this.transcribedLines = { from: -1, to: -1 };
       // Signal end of transcription
       this.dispatchStateEffect(transcriptionEnd.of());
       return;
     }
+
+    let activeEditor = this.activeEditor!;
 
     try {
       // Signal start of post-processing
@@ -348,7 +361,7 @@ export class AssemblyAITranscriber {
         i <= this.transcribedLines.to;
         i++
       ) {
-        lines.push(active.editor.getLine(i));
+        lines.push(activeEditor.getLine(i));
       }
 
       // Process the transcribed text
@@ -361,10 +374,10 @@ export class AssemblyAITranscriber {
       };
       const to = {
         line: this.transcribedLines.to,
-        ch: active.editor.getLine(this.transcribedLines.to).length,
+        ch: activeEditor.getLine(this.transcribedLines.to).length,
       };
 
-      active.editor.replaceRange(text, from, to);
+      activeEditor.replaceRange(text, from, to);
     } catch (error) {
       console.error('[Dictaphone] Error in post-processing:', error);
     }
@@ -373,6 +386,7 @@ export class AssemblyAITranscriber {
     this.transcribedLines = { from: -1, to: -1 };
     // Signal end of transcription
     this.dispatchStateEffect(transcriptionEnd.of());
+    this.activeEditor = null;
   }
 
   /**
@@ -398,7 +412,7 @@ export class AssemblyAITranscriber {
         method: 'post',
         headers: headers,
         body: JSON.stringify({
-          final_model: 'anthropic/claude-3-7-sonnet-20250219',
+          final_model: this.plugin.settings.finalModel,
           prompt: this.plugin.settings.postProcessPrompt,
           temperature: 0,
           input_text: text,
@@ -421,7 +435,7 @@ export class AssemblyAITranscriber {
    * @param effect - The state effect to dispatch
    */
   private dispatchStateEffect<T>(effect: StateEffect<T>) {
-    let cm: EditorView = (this.app.workspace.activeEditor?.editor as any)?.cm;
+    let cm: EditorView = (this.activeEditor as any)?.cm;
     if (!cm) {
       return;
     }
