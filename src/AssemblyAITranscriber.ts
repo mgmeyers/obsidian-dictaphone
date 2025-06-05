@@ -131,26 +131,23 @@ export class AssemblyAITranscriber {
       // Get temporary authentication token for WebSocket connection
       const token = await this.getStreamToken();
 
-      // Configure word boosting for better recognition of specific phrases
-      const wordBoost = encodeURIComponent(
-        JSON.stringify(['new line'])
-      );
-
       // Initialize WebSocket connection with configuration parameters
       this.websocket = new WebSocket(
-        `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=${SAMPLE_RATE}&token=${token}&word_boost=${wordBoost}`
+        `wss://streaming.assemblyai.com/v3/ws?sample_rate=${SAMPLE_RATE}&token=${token}&format_turns=true`
       );
 
       // Handle incoming WebSocket messages
       this.websocket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.text) {
-            // Handle different types of transcripts
-            if (data.message_type === 'PartialTranscript') {
-              this.handlePartialTranscript(data.text);
-            } else if (data.message_type === 'FinalTranscript') {
-              this.handleFinalTranscript(data.text);
+          const msgType = data.type;
+
+          if (msgType === 'Turn') {
+            const transcript = data.transcript || '';
+            if (data.turn_is_formatted) {
+              this.handleFinalTranscript(transcript);
+            } else {
+              this.handlePartialTranscript(transcript);
             }
           }
         } catch (error) {
@@ -226,7 +223,7 @@ export class AssemblyAITranscriber {
 
     if (this.websocket && ![WebSocket.CLOSED, WebSocket.CLOSING].includes(this.websocket.readyState as any)) {
       // Send termination message and close WebSocket
-      this.websocket.send('{"terminate_session":true}');
+      this.websocket.send(`{ "type": "Terminate" }`);
       this.websocket.close();
       this.websocket = null;
     }
@@ -322,10 +319,9 @@ export class AssemblyAITranscriber {
 
       // Request temporary token with 8-minute expiration
       const response = await request({
-        url: 'https://api.assemblyai.com/v2/realtime/token',
-        method: 'post',
+        url: 'https://streaming.assemblyai.com/v3/token?expires_in_seconds=600',
+        method: 'get',
         headers: headers,
-        body: JSON.stringify({ expires_in: 360000 }),
       });
 
       return JSON.parse(response).token;

@@ -12,7 +12,7 @@ interface DictaphoneSettings {
 const DEFAULT_SETTINGS: DictaphoneSettings = {
   assemblyApiKey: '',
   postProcess: true,
-  postProcessPrompt: "The input text is a transcript of a voice dictation. Correct grammar, punctuation, sentence structure, and spelling mistakes but do not change any of the words used. Your response should include the updated text and nothing else. It should not include any introductory or helper text, nor any formatting. It should never start with 'Here is'.",
+  postProcessPrompt: "You are an expert in correcting speech-to-text model outputs. These outputs are typically formatted with poor grammar and punctuation and sometimes contain words that were incorrectly transcribed. You will be given unstructured text transcript and your job is to correct grammar and punctuation mistakes, and you will also correct words that are obviously wrong given their surrounding context. You will also split the input text into multiple paragraphs when the topic changes. Return your response with no explanation or preamble.",
   finalModel: 'anthropic/claude-3-7-sonnet-20250219',
 };
 
